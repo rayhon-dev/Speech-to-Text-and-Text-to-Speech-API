@@ -8,10 +8,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserProfile
-        fields = [
-            'id',
-            'user',
-        ]
+        fields = ['id', 'user']
 
 
 
@@ -32,24 +29,10 @@ class UserSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        profile = getattr(instance, 'userprofile', None)
+        profile = getattr(instance, 'profile', None)
         data['profile'] = UserProfileSerializer(profile).data if profile else None
         return data
 
-
-    def update(self, instance, validated_data):
-        profile_data = validated_data.pop('profile', {})
-        instance.first_name = validated_data.get('first_name', instance.first_name)
-        instance.last_name = validated_data.get('last_name', instance.last_name)
-        instance.email = validated_data.get('email', instance.email)
-        instance.save()
-
-        profile, created = UserProfile.objects.get_or_create(user=instance)
-        profile.bio = profile_data.get('bio', profile.bio)
-        profile.profile_picture = profile_data.get('profile_picture', profile.profile_picture)
-        profile.save()
-
-        return instance
 
 class RegisterSerializer(serializers.ModelSerializer):
     password2 = serializers.CharField(write_only=True)
@@ -65,6 +48,9 @@ class RegisterSerializer(serializers.ModelSerializer):
             'first_name',
             'last_name'
         ]
+        extra_kwargs = {
+            'password': {'write_only': True}
+        }
 
     def validate(self, attrs):
         if attrs['password'] != attrs.pop('password2'):
@@ -72,4 +58,8 @@ class RegisterSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        return CustomUser.objects.create_user(**validated_data)
+        password = validated_data.pop('password')
+        user = CustomUser(**validated_data)
+        user.set_password(password)
+        user.save()
+        return user
